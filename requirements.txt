@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-jose
+bcrypt
+passlib
+python-dotenv
+email-validator
+python-multipart
+PyJWT
