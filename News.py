@@ -90,7 +90,7 @@ def get_user(token:str =Depends(Oauth2_scheme)):
         ) 
         
 cursor.execute(
-    'INSERT INTO users(role, username, email, password) VALUES(?,?,?,?), ['admin', 'senior', 'mosessenior11@gmail.com', 'developer111']
+    'INSERT INTO users(role, username, email, password) VALUES(?,?,?,?)', ['admin', 'senior', 'mosessenior11@gmail.com', 'developer111']
 @app.get('/')
 def home():
     return {'message': 'fastapi server is running🚀'}
