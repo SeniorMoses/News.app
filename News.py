@@ -23,7 +23,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-Oauth2_scheme=OAuth2PasswordBearer(tokenUrl='login')
+Oauth2_scheme=OAuth2PasswordBearer(tokenUrl='/login')
 dburl=os.getenv('DBURL')
 conn=sqlite3.connect(dburl, check_same_thread=False)
 conn.row_factory=sqlite3.Row
@@ -131,7 +131,7 @@ async def signin(data: OAuth2PasswordRequestForm=Depends()):
            status_code=401,
            detail='invalid credentials') 
    token=create_token(user) 
-   return {'token': token,
+   return {'access_token': token,
                  'token_type':'bearer',
                 'message': 'login successfully'}
                 
