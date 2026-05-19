@@ -140,39 +140,31 @@ async def register(data: Signup):
     return {'Message': 'Signup successfully 🎉'}
 
 @app.post('/login')
-async def signin(data: OAuth2PasswordRequestForm = Depends()):
-
+async def login(data: Login):
     cursor.execute(
         'SELECT * FROM users WHERE email=%s',
-        [data.username]
+        [data.email]
     )
 
     user = cursor.fetchone()
 
     if not user:
-        raise HTTPException(
-            status_code=401,
-            detail='invalid credentials'
-        )
+        raise HTTPException(status_code=401, detail='invalid credentials')
 
     if not await run_in_threadpool(
         bcrypt.checkpw,
         data.password.encode(),
         user['password'].encode()
     ):
-        raise HTTPException(
-            status_code=401,
-            detail='invalid credentials'
-        )
+        raise HTTPException(status_code=401, detail='invalid credentials')
 
     token = create_token(user)
 
     return {
-        'token': token,
-        'token_type': 'bearer',
-        'message': 'login successfully'
+        "access_token": token,
+        "token_type": "bearer",
+        "message" : "login successfully"
     }
-
 @app.post('/post')
 async def post_news(data: News, user=Depends(get_user)):
 
