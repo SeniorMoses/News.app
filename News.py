@@ -1,19 +1,21 @@
 from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr, Field
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import jwt
 from datetime import datetime, timedelta
-import bcrypt
 from dotenv import load_dotenv
 from pathlib import Path
 import os
-from fastapi.middleware.cors import CORSMiddleware
+import jwt
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import bcrypt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-env_path = Path('.env')
+env_path = Path(".env")
 load_dotenv(env_path)
+
+SECRET = os.getenv("SECRET")
+DBURL = os.getenv("DBURL")
 
 app = FastAPI()
 
@@ -25,15 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-Oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
-
-dburl = os.getenv('DBURL')
-
-conn = psycopg2.connect(
-    dburl,
-    cursor_factory=RealDictCursor
-)
-
+conn = psycopg2.connect(DBURL, cursor_factory=RealDictCursor)
 cursor = conn.cursor()
 
 class Signup(BaseModel):
@@ -43,175 +37,93 @@ class Signup(BaseModel):
 
 class Login(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str
 
 class News(BaseModel):
-    date: str
     title: str
     content: str
 
-cursor.execute('''
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
 id SERIAL PRIMARY KEY,
-role TEXT NOT NULL,
 username TEXT NOT NULL,
 email TEXT UNIQUE NOT NULL,
 password TEXT NOT NULL
 )
-''')
+""")
 
-conn.commit()
-
-cursor.execute('''
-CREATE TABLE IF NOT EXISTS news(
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS news (
 id SERIAL PRIMARY KEY,
-date TEXT NOT NULL,
 title TEXT NOT NULL,
-content TEXT NOT NULL
+content TEXT NOT NULL,
+created_at TIMESTAMP DEFAULT NOW()
 )
-''')
+""")
 
 conn.commit()
 
-SECRET = os.getenv('SECRET')
+def create_token(email: str):
+    payload = {
+        "sub": email,
+        "exp": datetime.utcnow() + timedelta(hours=2)
+    }
+    return jwt.encode(payload, SECRET, algorithm="HS256")
 
-def create_token(user):
-    return jwt.encode(
-        {
-            'username': user['username'],
-            'role': user['role'],
-            'id': user['id'],
-            'exp': datetime.utcnow() + timedelta(hours=1)
-        },
-        SECRET,
-        algorithm='HS256'
-    )
+def verify_password(plain, hashed):
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
-def get_user(token: str = Depends(Oauth2_scheme)):
-    try:
-        data = jwt.decode(
-            token,
-            SECRET,
-            algorithms=['HS256']
-        )
-        return data
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=401,
-            detail='token expired'
-        )
-
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=401,
-            detail='invalid token'
-        )
-
-@app.get('/')
-def home():
-    return {'message': 'fastapi server is running🚀'}
-
-@app.post('/signup')
-async def register(data: Signup):
-
-    hashed = await run_in_threadpool(
-        bcrypt.hashpw,
-        data.password.encode(),
-        bcrypt.gensalt()
-    )
+@app.post("/signup")
+def signup(data: Signup):
+    hashed = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
 
     try:
         cursor.execute(
-            'INSERT INTO users (username, role, email, password) VALUES (%s,%s,%s,%s)',
-            [data.username, 'user', data.email, hashed.decode()]
+            "INSERT INTO users (username, email, password) VALUES (%s, %s, %s)",
+            (data.username, data.email, hashed)
         )
-
         conn.commit()
-
-    except psycopg2.errors.UniqueViolation:
+        return {"message": "user created"}
+    except Exception as e:
         conn.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
 
-        raise HTTPException(
-            status_code=400,
-            detail='email already exists'
-        )
-
-    return {'Message': 'Signup successfully 🎉'}
-
-@app.post('/login')
-async def login(data: Login):
-    cursor.execute(
-        'SELECT * FROM users WHERE email=%s',
-        [data.email]
-    )
-
+@app.post("/login")
+def login(data: Login):
+    cursor.execute("SELECT * FROM users WHERE email = %s", (data.email,))
     user = cursor.fetchone()
 
     if not user:
-        raise HTTPException(status_code=401, detail='invalid credentials')
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    if not await run_in_threadpool(
-        bcrypt.checkpw,
-        data.password.encode(),
-        user['password'].encode()
-    ):
-        raise HTTPException(status_code=401, detail='invalid credentials')
+    if not verify_password(data.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    token = create_token(user)
+    token = create_token(user["email"])
 
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "message" : "login successfully"
-    }
-@app.post('/post')
-async def post_news(data: News, user=Depends(get_user)):
+    return {"access_token": token, "token_type": "bearer"}
 
-    if user['role'] != 'admin':
-        raise HTTPException(
-            status_code=403,
-            detail='You are not allowed to use this feature'
-        )
+auth = HTTPBearer()
 
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(auth)):
+    token = credentials.credentials
+
+    try:
+        payload = jwt.decode(token, SECRET, algorithms=["HS256"])
+        return payload["sub"]
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/news")
+def create_news(data: News, user=Depends(get_current_user)):
     cursor.execute(
-        'INSERT INTO news (date, title, content) VALUES (%s,%s,%s)',
-        [data.date, data.title, data.content]
+        "INSERT INTO news (title, content) VALUES (%s, %s)",
+        (data.title, data.content)
     )
-
     conn.commit()
+    return {"message": "news created"}
 
-    return {'message': 'News posted successfully 🎉'}
-
-@app.get('/read')
-async def read_news(user=Depends(get_user)):
-
-    cursor.execute('SELECT * FROM news')
-
-    posts = cursor.fetchall()
-
-    if not posts:
-        raise HTTPException(
-            status_code=404,
-            detail='No news posted yet'
-        )
-
-    return posts
-
-@app.get('/posts/{post_title}')
-async def search_news(post_title: str, user=Depends(get_user)):
-
-    cursor.execute(
-        'SELECT * FROM news WHERE title ILIKE %s',
-        [f'%{post_title}%']
-    )
-
-    found = cursor.fetchall()
-
-    if not found:
-        raise HTTPException(
-            status_code=404,
-            detail='news not found, make sure you search by title'
-        )
-
-    return found
+@app.get("/news")
+def get_news():
+    cursor.execute("SELECT * FROM news ORDER BY id DESC")
+    return cursor.fetchall()
