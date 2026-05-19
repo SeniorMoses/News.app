@@ -1,10 +1,8 @@
 fastapi
-gunicorn 
 uvicorn
-python-jose
+psycopg2-binary
 bcrypt
-passlib
 python-dotenv
+PyJWT
 email-validator
 python-multipart
-PyJWT
