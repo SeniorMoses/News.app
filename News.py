@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header , Depends 
+from fastapi import FastAPI, HTTPException, Header , Depends  
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, EmailStr, Field 
