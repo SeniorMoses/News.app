@@ -77,7 +77,7 @@ def create_token(user):
             'username': user['username'],
             'role': user['role'],
             'id': user['id'],
-            'exp': datetime.utcnow() + timedelta(hours=1)
+            'exp': datetime.utcnow() + timedelta(days=7)
         },
         SECRET, 
         algorithm='HS256'       
@@ -170,3 +170,13 @@ async def search_news(post_title: str, user=Depends(get_user)):
         raise HTTPException(status_code=404, detail='news not found, make sure you search by title')
     
     return [dict(news) for news in found]
+    @app.post('/verify-token')
+async def verify_token(token: str):
+    try:
+        # Try to decode
+        data = jwt.decode(token, SECRET, algorithms=['HS256'])
+        return {"valid": True, "data": data}
+    except jwt.ExpiredSignatureError:
+        return {"valid": False, "error": "Token has expired"}
+    except jwt.InvalidTokenError as e:
+        return {"valid": False, "error": str(e)}
