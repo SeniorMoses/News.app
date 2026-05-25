@@ -1,9 +1,9 @@
-fastapi 
+fastapi
 uvicorn
-gunicorn
 psycopg2-binary
-bcrypt
-python-dotenv
 PyJWT
+bcrypt
+passlib
+python-dotenv
 email-validator
 python-multipart
