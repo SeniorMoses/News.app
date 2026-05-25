@@ -27,7 +27,7 @@ app.add_middleware(
 
 Oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
-# PostgreSQL connection
+
 dburl = os.getenv('DBURL')
 conn = psycopg2.connect(dburl, cursor_factory=RealDictCursor)
 conn.autocommit = False
@@ -47,7 +47,7 @@ class News(BaseModel):
     title: str
     content: str 
 
-# Create tables for PostgreSQL
+
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -77,7 +77,7 @@ def create_token(user):
             'username': user['username'],
             'role': user['role'],
             'id': user['id'],
-            'exp': datetime.utcnow() + timedelta(days=7)
+            'exp': datetime.now(timezone.utc) + timedelta(days=7)
         },
         SECRET, 
         algorithm='HS256'       
@@ -170,10 +170,10 @@ async def search_news(post_title: str, user=Depends(get_user)):
         raise HTTPException(status_code=404, detail='news not found, make sure you search by title')
     
     return [dict(news) for news in found]
-    @app.post('/verify-token')
+@app.post('/verify-token')
 async def verify_token(token: str):
     try:
-        # Try to decode
+    
         data = jwt.decode(token, SECRET, algorithms=['HS256'])
         return {"valid": True, "data": data}
     except jwt.ExpiredSignatureError:
