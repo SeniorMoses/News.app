@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import jwt
-from datetime import datetime, timedelta 
+from datetime import datetime, timedelta, timezone
 import bcrypt
 from dotenv import load_dotenv
 from pathlib import Path
