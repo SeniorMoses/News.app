@@ -25,7 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-Oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
 
 dburl = os.getenv('DBURL')
@@ -83,7 +83,7 @@ def create_token(user):
         algorithm='HS256'       
     )
     
-def get_user(token: str = Depends(Oauth2_scheme)): 
+def get_user(token: str = Depends(oauth2_scheme)): 
     try:
         data = jwt.decode(token, SECRET, algorithms=['HS256']) 
         return data
@@ -131,7 +131,7 @@ async def signin(data: OAuth2PasswordRequestForm = Depends()):
     
     token = create_token(user)
     return {
-        'token': token,
+        'access_token': token,
         'token_type': 'bearer',
         'message': 'login successfully'
     }
