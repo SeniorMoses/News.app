@@ -2,7 +2,11 @@
 
 Hivenews is a simple News app where users can read and explore news posted Admins have access to all the endpoints including news and only users with the admin role can post news.
 
-Features of HiveNews Endpoints:
+Features of HiveNews
+
+Authentication used for secured login session and role based access control 
+
+Endpoints:
 
 - Signup / user register to the app with username, email, password, email is verified if email is duplicate it rejects the signup and recommends login username must be at least 3 characters password must be at least 8 characters password is hashed using bcrypt before it touches the database
 
