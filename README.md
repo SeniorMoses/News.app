@@ -28,5 +28,5 @@ How to run locally
 1. Clone the repo
 2. Create a .env file with DBURL and SECRET
 3. Run pip install -r requirements.txt
-4. Run uvicorn main:app --reload
+4. Run uvicorn HiveNews:app --reload
 5. Open http://localhost:8000/docs
